@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import stim
+import os
 
 from tqecd.construction import annotate_detectors_automatically
 from tqecd.exceptions import TQECDException
@@ -13,21 +12,12 @@ from tqecd.utils import (
     remove_annotations,
 )
 
-_HERE = Path(__file__).parent
-_TEST_FOLDER = _HERE / "test_files"
-_VALID_TEST_FOLDER = _TEST_FOLDER / "valid"
-_INVALID_TEST_FOLDER = _TEST_FOLDER / "invalid"
-
-
-def valid_test_circuits() -> list[tuple[str, stim.Circuit]]:
-    valid_circuits: list[tuple[str, stim.Circuit]] = []
-    for filepath in _VALID_TEST_FOLDER.iterdir():
+def valid_test_circuits() -> list[stim.Circuit]:
+    valid_circuits: list[stim.Circuit] = []
+    for filepath in os.scandir(os.path.join("test", "test_files", "valid")):
         with open(filepath) as f:
             valid_circuits.append(
-                (
-                    filepath.name,
-                    push_all_detectors_to_the_end(stim.Circuit(f.read())),
-                )
+                    push_all_detectors_to_the_end(stim.Circuit(f.read()))
             )
     return valid_circuits
 
@@ -45,7 +35,7 @@ def parse_invalid_circuit(text: str) -> tuple[stim.Circuit, str]:
 
 def invalid_test_circuits() -> list[tuple[str, stim.Circuit, str]]:
     invalid_circuits: list[tuple[str, stim.Circuit, str]] = []
-    for filepath in _INVALID_TEST_FOLDER.iterdir():
+    for filepath in os.scandir(os.path.join("test", "test_files", "invalid")):
         with open(filepath) as f:
             file_content = f.read()
         circuit, expected_error_message_regex = parse_invalid_circuit(file_content)
@@ -61,9 +51,8 @@ def get_detectors_tuples_shallow(circuit: stim.Circuit) -> list[tuple[int, ...]]
             detectors_tuples.append(detector_to_targets_tuple(inst))
     return detectors_tuples
 
-
-@pytest.mark.parametrize("name,circuit", valid_test_circuits())
-def test_valid_circuits(name: str, circuit: stim.Circuit) -> None:
+@pytest.mark.parametrize("circuit", valid_test_circuits())
+def test_valid_circuits(circuit: stim.Circuit) -> None:
     circuit_without_detectors = remove_annotations(
         circuit, frozenset(["DETECTOR", "SHIFT_COORDS"])
     )
@@ -78,8 +67,8 @@ def test_valid_circuits(name: str, circuit: stim.Circuit) -> None:
     assert not missing_detectors, "Detectors in original circuit are missing."
 
 
-@pytest.mark.parametrize("name,circuit,error_message", invalid_test_circuits())
-def test_invalid_circuits(name: str, circuit: stim.Circuit, error_message: str) -> None:
+@pytest.mark.parametrize("name, circuit, error_message", invalid_test_circuits())
+def test_invalid_circuits(_: str, circuit: stim.Circuit, error_message: str) -> None:
     circuit_without_detectors = remove_annotations(
         circuit, frozenset(["DETECTOR", "SHIFT_COORDS"])
     )
